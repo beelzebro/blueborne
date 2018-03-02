@@ -76,4 +76,5 @@ def my_sdp_info_leak(dst):
         response = sdp.unpack_sdp_pdu(socket.recv(4096))
         response['payload'] = sdp.unpack_search_response(response['payload'])
         result.append(response['payload']['records'])
+
     return result
