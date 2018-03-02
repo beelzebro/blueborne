@@ -25,7 +25,6 @@ def do_sdp_info_leak(dst, src):
         result.append(response['payload']['records'])
     return result
 
-
 def my_sdp_info(dst):
     socket = btsock.l2cap_connect( (dst, SDP_PSM), mtu=MIN_MTU )
     socket.send( sdp.pack_search_request(sdp.L2CAP_UUID) )

