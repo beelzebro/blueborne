@@ -62,7 +62,7 @@ class NRF24BREDR(object):
         self.spi.xfer2([W_REGISTER | (REGISTER_MASK & reg), value])
     
     def write_reg_multi_bytes(self, reg, data, pad_len):
-        write = list(data.ljust(pad_len, b'\x00'))
+        write = [ord(i) for i in data.ljust(pad_len, b'\x00')]
         self.spi.xfer2([W_REGISTER | (REGISTER_MASK & reg)] + write)
 
     def read_reg(self, reg, size=1):
